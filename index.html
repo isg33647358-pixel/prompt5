@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+  <title>시디놀 프롬프트 수신기</title>
+
+  <meta name="description" content="시디놀 프롬프트 수신기" />
+  <meta name="theme-color" content="#2563eb" />
+
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="시디놀 수신기" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png" />
+  <link rel="icon" type="image/png" sizes="512x512" href="./icon-512.png" />
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html {
+      min-height: 100%;
+      background: #eff6ff;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(124, 58, 237, 0.18), transparent 34%),
+        radial-gradient(circle at top right, rgba(37, 99, 235, 0.18), transparent 32%),
+        linear-gradient(135deg, #fff7ed, #eff6ff);
+      color: #111827;
+      overscroll-behavior-y: none;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 760px;
+      min-height: 100vh;
+      margin: 0 auto;
+      padding: calc(14px + env(safe-area-inset-top)) 14px calc(14px + env(safe-area-inset-bottom));
+      display: flex;
+      flex-direction: column;
+      gap: 11px;
+    }
+
+    .header {
+      padding: 18px 14px;
+      border-radius: 26px;
+      background:
+        linear-gradient(135deg, rgba(37, 99, 235, 0.96), rgba(124, 58, 237, 0.96)),
+        #2563eb;
+      color: white;
+      box-shadow: 0 14px 32px rgba(37, 99, 235, 0.28);
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .header::before {
+      content: "";
+      position: absolute;
+      width: 180px;
+      height: 180px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+      top: -100px;
+      right: -70px;
+    }
+
+    .app-badge {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 8px;
+      padding: 5px 12px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.18);
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+    }
+
+    .header h1 {
+      position: relative;
+      margin: 0;
+      font-size: 30px;
+      line-height: 1.2;
+      letter-spacing: -0.03em;
+      text-align: center;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.94);
+      border: 1px solid rgba(229, 231, 235, 0.9);
+      border-radius: 24px;
+      padding: 13px;
+      box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+      backdrop-filter: blur(10px);
+    }
+
+    .password-row {
+      display: grid;
+      grid-template-columns: 1fr 92px;
+      gap: 8px;
+      align-items: center;
+    }
+
+    input {
+      width: 100%;
+      height: 50px;
+      border: 2px solid #dbeafe;
+      border-radius: 17px;
+      padding: 0 14px;
+      font-size: 21px;
+      font-weight: 800;
+      outline: none;
+      background: #ffffff;
+      color: #111827;
+    }
+
+    input::placeholder {
+      color: #94a3b8;
+    }
+
+    input:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+    }
+
+    button {
+      border: 0;
+      border-radius: 17px;
+      padding: 12px 14px;
+      font-size: 18px;
+      font-weight: 900;
+      cursor: pointer;
+      background: #2563eb;
+      color: white;
+      min-height: 50px;
+      box-shadow: 0 8px 18px rgba(37, 99, 235, 0.22);
+      touch-action: manipulation;
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .secondary {
+      background: #111827;
+      box-shadow: 0 8px 18px rgba(17, 24, 39, 0.18);
+    }
+
+    .status {
+      margin-top: 9px;
+      padding: 10px 12px;
+      border-radius: 17px;
+      font-size: 16px;
+      font-weight: 800;
+      line-height: 1.4;
+      background: #f3f4f6;
+      color: #374151;
+      white-space: pre-wrap;
+    }
+
+    .status.ok {
+      background: #ecfdf5;
+      color: #047857;
+      border: 1px solid #a7f3d0;
+    }
+
+    .status.error {
+      background: #fef2f2;
+      color: #b91c1c;
+      border: 1px solid #fecaca;
+    }
+
+    .status.info {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+    }
+
+    .prompt-meta {
+      font-size: 14px;
+      font-weight: 800;
+      color: #475569;
+      line-height: 1.45;
+      margin-bottom: 8px;
+    }
+
+    .prompt-title {
+      font-size: 23px;
+      font-weight: 950;
+      line-height: 1.32;
+      letter-spacing: -0.03em;
+      margin-bottom: 10px;
+    }
+
+    .prompt-body {
+      height: calc(80vh - 338px);
+      min-height: 208px;
+      max-height: 416px;
+      overflow: auto;
+      padding: 13px;
+      border-radius: 18px;
+      background: #ffffff;
+      border: 1px solid #dbeafe;
+      font-size: 18px;
+      line-height: 1.65;
+      white-space: pre-wrap;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .actions {
+      position: sticky;
+      bottom: 0;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding-top: 4px;
+      background: linear-gradient(180deg, rgba(239, 246, 255, 0), rgba(239, 246, 255, 0.95) 28%, rgba(239, 246, 255, 1));
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .footer {
+      text-align: center;
+      color: #64748b;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 3px 0 8px;
+    }
+
+    @media (max-width: 480px) {
+      .app {
+        padding: calc(10px + env(safe-area-inset-top)) 10px calc(10px + env(safe-area-inset-bottom));
+        gap: 10px;
+      }
+
+      .header {
+        padding: 16px 12px;
+        border-radius: 22px;
+      }
+
+      .header h1 {
+        font-size: 26px;
+      }
+
+      .password-row {
+        grid-template-columns: 1fr 82px;
+        gap: 7px;
+      }
+
+      input {
+        font-size: 21px;
+        height: 52px;
+      }
+
+      button {
+        width: 100%;
+        font-size: 17px;
+        min-height: 52px;
+        padding: 11px 10px;
+      }
+
+      .prompt-title {
+        font-size: 21px;
+      }
+
+      .prompt-body {
+        height: calc(80vh - 354px);
+        min-height: 192px;
+        max-height: 384px;
+        font-size: 18px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="app-badge">Prompt Receiver</div>
+      <h1>시디놀 프롬프트 수신기</h1>
+    </header>
+
+    <section class="card">
+      <div class="password-row">
+        <input id="passwordInput" type="text" placeholder="오늘의 암호" autocomplete="off" />
+        <button id="loadBtn" type="button" onclick="loadPrompt()">확인</button>
+      </div>
+      <div id="statusBox" class="status info">암호를 입력한 뒤 확인을 누르세요.</div>
+    </section>
+
+    <section id="promptCard" class="card hidden">
+      <div id="promptMeta" class="prompt-meta"></div>
+      <div id="promptTitle" class="prompt-title"></div>
+      <div id="promptBody" class="prompt-body"></div>
+    </section>
+
+    <div class="actions">
+      <button type="button" onclick="loadPrompt()">새로 받기</button>
+      <button class="secondary" type="button" onclick="copyPrompt()">복사하기</button>
+    </div>
+
+    <div class="footer">시디놀 프롬프트 수신기 4.0</div>
+  </div>
+
+  <script>
+    const API_URL = 'https://script.google.com/macros/s/AKfycbzWrr0qnSwnDIL1fCe7ECJMycsJcLVu7W1svTwk8ewJPLb5vK8KAel0e-4ulC_z5QI/exec';
+
+    let currentPromptBody = '';
+    let jsonpScript = null;
+
+    function loadPrompt() {
+      const passwordInput = document.getElementById('passwordInput');
+      const password = passwordInput.value.trim();
+
+      if (!password) {
+        showStatus('암호를 입력하세요.', 'error');
+        passwordInput.focus();
+        return;
+      }
+
+      hideKeyboard(passwordInput);
+      setLoading(true);
+      showStatus('프롬프트를 불러오는 중입니다.', 'info');
+
+      const callbackName = 'sidinolReceiverCallback_' + Date.now();
+
+      window[callbackName] = function (result) {
+        cleanupJsonp(callbackName);
+        setLoading(false);
+        handleApiResult(result);
+      };
+
+      const url =
+        API_URL +
+        '?callback=' + encodeURIComponent(callbackName) +
+        '&password=' + encodeURIComponent(password);
+
+      jsonpScript = document.createElement('script');
+      jsonpScript.src = url;
+      jsonpScript.onerror = function () {
+        cleanupJsonp(callbackName);
+        setLoading(false);
+        showStatus('연결에 실패했습니다. 인터넷 상태를 확인한 뒤 다시 시도하세요.', 'error');
+      };
+
+      document.body.appendChild(jsonpScript);
+    }
+
+    function handleApiResult(result) {
+      if (!result) {
+        showStatus('응답을 받지 못했습니다.', 'error');
+        return;
+      }
+
+      if (!result.ok) {
+        hidePrompt();
+
+        if (result.status === 'WRONG_PASSWORD') {
+          showStatus('암호가 맞지 않습니다.', 'error');
+          return;
+        }
+
+        if (result.status === 'NOT_SENT') {
+          showStatus('암호는 맞지만 아직 송출된 프롬프트가 없습니다.', 'info');
+          return;
+        }
+
+        showStatus(result.message || '프롬프트를 불러오지 못했습니다.', 'error');
+        return;
+      }
+
+      const data = result.data || {};
+
+      currentPromptBody = data.body || '';
+
+      document.getElementById('promptMeta').textContent = [
+        data.promptId ? '프롬프트번호: ' + data.promptId : '',
+        data.sentAt ? '송출시각: ' + data.sentAt : ''
+      ].filter(Boolean).join(' · ');
+
+      document.getElementById('promptTitle').textContent = data.title || '프롬프트';
+      document.getElementById('promptBody').textContent = currentPromptBody;
+      document.getElementById('promptCard').classList.remove('hidden');
+
+      showStatus('프롬프트를 불러왔습니다.', 'ok');
+    }
+
+    function copyPrompt() {
+      const text = String(currentPromptBody || '').trim();
+
+      if (!text) {
+        showStatus('복사할 프롬프트가 없습니다.', 'error');
+        return;
+      }
+
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text)
+          .then(function () {
+            showStatus('프롬프트 본문을 복사했습니다.', 'ok');
+          })
+          .catch(function () {
+            fallbackCopy(text);
+          });
+
+        return;
+      }
+
+      fallbackCopy(text);
+    }
+
+    function fallbackCopy(text) {
+      const textarea = document.createElement('textarea');
+
+      textarea.value = text;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'fixed';
+      textarea.style.left = '-9999px';
+      textarea.style.top = '0';
+
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      textarea.setSelectionRange(0, textarea.value.length);
+
+      try {
+        const success = document.execCommand('copy');
+
+        if (success) {
+          showStatus('프롬프트 본문을 복사했습니다.', 'ok');
+        } else {
+          showStatus('복사에 실패했습니다. 본문을 직접 선택해 복사하세요.', 'error');
+        }
+      } catch (error) {
+        showStatus('복사에 실패했습니다. 본문을 직접 선택해 복사하세요.', 'error');
+      }
+
+      document.body.removeChild(textarea);
+    }
+
+    function showStatus(message, type) {
+      const statusBox = document.getElementById('statusBox');
+
+      statusBox.textContent = message || '';
+      statusBox.className = 'status ' + (type || 'info');
+    }
+
+    function hidePrompt() {
+      currentPromptBody = '';
+      document.getElementById('promptCard').classList.add('hidden');
+      document.getElementById('promptMeta').textContent = '';
+      document.getElementById('promptTitle').textContent = '';
+      document.getElementById('promptBody').textContent = '';
+    }
+
+    function setLoading(isLoading) {
+      const loadBtn = document.getElementById('loadBtn');
+
+      loadBtn.disabled = isLoading;
+      loadBtn.textContent = isLoading ? '확인 중' : '확인';
+    }
+
+    function cleanupJsonp(callbackName) {
+      if (jsonpScript && jsonpScript.parentNode) {
+        jsonpScript.parentNode.removeChild(jsonpScript);
+      }
+
+      jsonpScript = null;
+
+      try {
+        delete window[callbackName];
+      } catch (error) {
+        window[callbackName] = undefined;
+      }
+    }
+
+    function hideKeyboard(input) {
+      try {
+        input.blur();
+      } catch (error) {
+        // 무시
+      }
+    }
+
+    document.getElementById('passwordInput').addEventListener('keydown', function (event) {
+      if (event.key === 'Enter') {
+        loadPrompt();
+      }
+    });
+  </script>
+</body>
+</html>
