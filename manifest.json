@@ -1,7 +1,7 @@
 {
-  "name": "시디놀 프롬프트 수신기",
-  "short_name": "시디놀 수신기",
-  "description": "시디놀 프롬프트 수신기",
+  "name": "디지털 온 프롬프트 수신기",
+  "short_name": "디지털 온 수신기",
+  "description": "디지털 온 프롬프트 수신기",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
