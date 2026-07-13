@@ -4,14 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
-  <title>디지털 온 프롬프트 수신기</title>
+  <title>디지털온 프롬프트 수신기</title>
 
-  <meta name="description" content="디지털 온 프롬프트 수신기" />
+  <meta name="description" content="디지털온 프롬프트 수신기" />
   <meta name="theme-color" content="#2563eb" />
 
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="디지털 온 수신기" />
+  <meta name="apple-mobile-web-app-title" content="프롬프트 수신기" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 
   <link rel="manifest" href="./manifest.json" />
@@ -88,7 +88,6 @@
       background: rgba(255, 255, 255, 0.18);
       font-size: 13px;
       font-weight: 900;
-      letter-spacing: -0.02em;
     }
 
     .header h1 {
@@ -96,7 +95,6 @@
       margin: 0;
       font-size: 30px;
       line-height: 1.2;
-      letter-spacing: -0.03em;
       text-align: center;
     }
 
@@ -192,6 +190,12 @@
       border: 1px solid #bfdbfe;
     }
 
+    .prompt-list {
+      display: flex;
+      flex-direction: column;
+      gap: 11px;
+    }
+
     .prompt-meta {
       font-size: 14px;
       font-weight: 800;
@@ -204,14 +208,12 @@
       font-size: 23px;
       font-weight: 950;
       line-height: 1.32;
-      letter-spacing: -0.03em;
       margin-bottom: 10px;
     }
 
     .prompt-body {
-      height: calc(80vh - 338px);
-      min-height: 208px;
-      max-height: 416px;
+      min-height: 160px;
+      max-height: 360px;
       overflow: auto;
       padding: 13px;
       border-radius: 18px;
@@ -221,6 +223,13 @@
       line-height: 1.65;
       white-space: pre-wrap;
       -webkit-overflow-scrolling: touch;
+    }
+
+    .prompt-actions {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      margin-top: 10px;
     }
 
     .actions {
@@ -282,9 +291,8 @@
       }
 
       .prompt-body {
-        height: calc(80vh - 354px);
-        min-height: 192px;
-        max-height: 384px;
+        min-height: 150px;
+        max-height: 330px;
         font-size: 18px;
       }
     }
@@ -295,7 +303,7 @@
   <div class="app">
     <header class="header">
       <div class="app-badge">Prompt Receiver</div>
-      <h1>디지털 온 프롬프트 수신기</h1>
+      <h1>디지털온 프롬프트 수신기</h1>
     </header>
 
     <section class="card">
@@ -303,27 +311,23 @@
         <input id="passwordInput" type="text" placeholder="오늘의 암호" autocomplete="off" />
         <button id="loadBtn" type="button" onclick="loadPrompt()">확인</button>
       </div>
-      <div id="statusBox" class="status info">암호를 입력한 뒤 확인을 누르세요.</div>
+      <div id="statusBox" class="status info">암호를 입력하고 확인을 누르세요.</div>
     </section>
 
-    <section id="promptCard" class="card hidden">
-      <div id="promptMeta" class="prompt-meta"></div>
-      <div id="promptTitle" class="prompt-title"></div>
-      <div id="promptBody" class="prompt-body"></div>
-    </section>
+    <div id="promptList" class="prompt-list hidden"></div>
 
     <div class="actions">
       <button type="button" onclick="loadPrompt()">새로 받기</button>
-      <button class="secondary" type="button" onclick="copyPrompt()">복사하기</button>
+      <button class="secondary" type="button" onclick="copyAllPrompts()">전체 복사</button>
     </div>
 
-    <div class="footer">디지털 온 프롬프트 수신기 1.0</div>
+    <div class="footer">디지털온 프롬프트 수신기 1.1</div>
   </div>
 
   <script>
     const API_URL = 'https://script.google.com/macros/s/AKfycbwEarWDaDVml98cD_AVaUBnZxHEG-7E9Cxryce19oXHvkyC3H3YvIBcAQsQL_siwtVYuw/exec';
 
-    let currentPromptBody = '';
+    let currentPrompts = [];
     let jsonpScript = null;
 
     function loadPrompt() {
@@ -358,7 +362,7 @@
       jsonpScript.onerror = function () {
         cleanupJsonp(callbackName);
         setLoading(false);
-        showStatus('연결에 실패했습니다. 인터넷 상태를 확인한 뒤 다시 시도하세요.', 'error');
+        showStatus('연결에 실패했습니다. 인터넷 상태를 확인하고 다시 시도하세요.', 'error');
       };
 
       document.body.appendChild(jsonpScript);
@@ -366,12 +370,13 @@
 
     function handleApiResult(result) {
       if (!result) {
+        hidePrompts();
         showStatus('응답을 받지 못했습니다.', 'error');
         return;
       }
 
       if (!result.ok) {
-        hidePrompt();
+        hidePrompts();
 
         if (result.status === 'WRONG_PASSWORD') {
           showStatus('암호가 맞지 않습니다.', 'error');
@@ -388,45 +393,122 @@
       }
 
       const data = result.data || {};
+      const prompts = Array.isArray(data.prompts) ? data.prompts : [data];
 
-      currentPromptBody = data.body || '';
+      currentPrompts = prompts
+        .map(function (prompt, index) {
+          return {
+            matrixId: String(prompt.matrixId || data.matrixId || '').trim(),
+            promptId: String(prompt.promptId || '').trim(),
+            title: String(prompt.title || ('프롬프트 ' + (index + 1))).trim(),
+            body: String(prompt.body || '').trim(),
+            sentAt: String(prompt.sentAt || data.sentAt || '').trim()
+          };
+        })
+        .filter(function (prompt) {
+          return prompt.promptId || prompt.title || prompt.body;
+        });
 
-      document.getElementById('promptMeta').textContent = [
-        data.promptId ? '프롬프트번호: ' + data.promptId : '',
-        data.sentAt ? '송출시각: ' + data.sentAt : ''
-      ].filter(Boolean).join(' · ');
+      if (currentPrompts.length === 0) {
+        hidePrompts();
+        showStatus('표시할 프롬프트가 없습니다.', 'info');
+        return;
+      }
 
-      document.getElementById('promptTitle').textContent = data.title || '프롬프트';
-      document.getElementById('promptBody').textContent = currentPromptBody;
-      document.getElementById('promptCard').classList.remove('hidden');
-
-      showStatus('프롬프트를 불러왔습니다.', 'ok');
+      renderPrompts(currentPrompts);
+      showStatus(currentPrompts.length + '개의 프롬프트를 불러왔습니다.', 'ok');
     }
 
-    function copyPrompt() {
-      const text = String(currentPromptBody || '').trim();
+    function renderPrompts(prompts) {
+      const promptList = document.getElementById('promptList');
 
-      if (!text) {
+      promptList.innerHTML = '';
+
+      prompts.forEach(function (prompt, index) {
+        const card = document.createElement('section');
+        card.className = 'card';
+
+        const meta = document.createElement('div');
+        meta.className = 'prompt-meta';
+        meta.textContent = [
+          '프롬프트 ' + (index + 1) + ' / ' + prompts.length,
+          prompt.promptId ? '번호: ' + prompt.promptId : '',
+          prompt.sentAt ? '송출시각: ' + prompt.sentAt : ''
+        ].filter(Boolean).join(' · ');
+
+        const title = document.createElement('div');
+        title.className = 'prompt-title';
+        title.textContent = prompt.title || ('프롬프트 ' + (index + 1));
+
+        const body = document.createElement('div');
+        body.className = 'prompt-body';
+        body.textContent = prompt.body || '';
+
+        const actions = document.createElement('div');
+        actions.className = 'prompt-actions';
+
+        const copyButton = document.createElement('button');
+        copyButton.type = 'button';
+        copyButton.textContent = '이 프롬프트 복사';
+        copyButton.onclick = function () {
+          copyText(prompt.body || '', '프롬프트 ' + (index + 1) + ' 본문을 복사했습니다.');
+        };
+
+        actions.appendChild(copyButton);
+
+        card.appendChild(meta);
+        card.appendChild(title);
+        card.appendChild(body);
+        card.appendChild(actions);
+
+        promptList.appendChild(card);
+      });
+
+      promptList.classList.remove('hidden');
+    }
+
+    function copyAllPrompts() {
+      if (!currentPrompts.length) {
         showStatus('복사할 프롬프트가 없습니다.', 'error');
         return;
       }
 
+      const text = currentPrompts.map(function (prompt, index) {
+        return [
+          '[프롬프트 ' + (index + 1) + ']',
+          prompt.title || '',
+          '',
+          prompt.body || ''
+        ].join('\n').trim();
+      }).join('\n\n--------------------\n\n');
+
+      copyText(text, '전체 프롬프트를 복사했습니다.');
+    }
+
+    function copyText(text, successMessage) {
+      const cleanText = String(text || '').trim();
+
+      if (!cleanText) {
+        showStatus('복사할 내용이 없습니다.', 'error');
+        return;
+      }
+
       if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text)
+        navigator.clipboard.writeText(cleanText)
           .then(function () {
-            showStatus('프롬프트 본문을 복사했습니다.', 'ok');
+            showStatus(successMessage || '복사했습니다.', 'ok');
           })
           .catch(function () {
-            fallbackCopy(text);
+            fallbackCopy(cleanText, successMessage);
           });
 
         return;
       }
 
-      fallbackCopy(text);
+      fallbackCopy(cleanText, successMessage);
     }
 
-    function fallbackCopy(text) {
+    function fallbackCopy(text, successMessage) {
       const textarea = document.createElement('textarea');
 
       textarea.value = text;
@@ -444,12 +526,12 @@
         const success = document.execCommand('copy');
 
         if (success) {
-          showStatus('프롬프트 본문을 복사했습니다.', 'ok');
+          showStatus(successMessage || '복사했습니다.', 'ok');
         } else {
-          showStatus('복사에 실패했습니다. 본문을 직접 선택해 복사하세요.', 'error');
+          showStatus('복사에 실패했습니다. 본문을 직접 선택해서 복사하세요.', 'error');
         }
       } catch (error) {
-        showStatus('복사에 실패했습니다. 본문을 직접 선택해 복사하세요.', 'error');
+        showStatus('복사에 실패했습니다. 본문을 직접 선택해서 복사하세요.', 'error');
       }
 
       document.body.removeChild(textarea);
@@ -462,12 +544,11 @@
       statusBox.className = 'status ' + (type || 'info');
     }
 
-    function hidePrompt() {
-      currentPromptBody = '';
-      document.getElementById('promptCard').classList.add('hidden');
-      document.getElementById('promptMeta').textContent = '';
-      document.getElementById('promptTitle').textContent = '';
-      document.getElementById('promptBody').textContent = '';
+    function hidePrompts() {
+      currentPrompts = [];
+      const promptList = document.getElementById('promptList');
+      promptList.innerHTML = '';
+      promptList.classList.add('hidden');
     }
 
     function setLoading(isLoading) {
@@ -495,7 +576,6 @@
       try {
         input.blur();
       } catch (error) {
-        // 무시
       }
     }
 
